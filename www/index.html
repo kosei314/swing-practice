@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スイング練習 - メトロノーム</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            height: 100vh;
+            margin: 0;
+            padding-top: 30px;
+            color: #333;
+        }
+
+        .app-container {
+            background: #fff;
+            padding: 20px;
+            width: 95%;
+            max-width: 450px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            letter-spacing: 0.05em;
+            text-align: center;
+        }
+
+        .top-section {
+            display: flex;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+
+        .key-control {
+            flex: 1;
+            padding: 10px;
+            text-align: left;
+            transition: opacity 0.3s;
+        }
+
+        .key-control.disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .key-control:first-child {
+            border-right: 1px solid #eee;
+        }
+
+        .radio-group {
+            margin-bottom: 15px;
+            font-weight: bold;
+            pointer-events: auto !important;
+        }
+
+        .radio-group input[type="radio"] {
+            accent-color: #357abd; /* ご指定の青に変更 */
+            cursor: pointer;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        .tempo-input {
+            width: 80px;
+            padding: 5px;
+            font-size: 1.1rem;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .slider {
+            width: 95%;
+            cursor: pointer;
+            accent-color: #357abd; /* ご指定の青に変更 */
+        }
+
+        .bottom-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .sync-button {
+            background-color: transparent;
+            color: #777;
+            border: 1px solid #ccc;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .sync-button:hover {
+            background-color: #f9f9f9;
+            border-color: #357abd; /* ホバー時は青枠に */
+            color: #333;
+        }
+
+        .image-container {
+            width: 100%; 
+            aspect-ratio: 1 / 1;
+            margin: 10px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .play-button {
+            background-color: #357abd; /* ご指定の青に変更 */
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+        }
+
+        .play-button:hover {
+            background-color: #2a6496; /* 少し濃い青でホバー効果 */
+        }
+
+        .play-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .play-button.active {
+            background-color: #f2a6a6; /* 淡い赤（停止状態） */
+        }
+        
+        .play-button.active:hover {
+            background-color: #e59595;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <h1>スイング練習</h1>
+
+    <div class="top-section">
+        <div class="key-control" id="section-key1">
+            <div class="radio-group">
+                <input type="radio" id="key1" name="key-select" value="1">
+                <label for="key1">Key＝1</label>
+            </div>
+            <div class="input-group">
+                <input type="number" id="input1" class="tempo-input" value="70.71" min="50" max="200" step="any">
+                <span>BPM</span>
+            </div>
+            <input type="range" id="slider1" class="slider" min="50" max="200" value="71" step="1">
+        </div>
+
+        <div class="key-control" id="section-key05">
+            <div class="radio-group">
+                <input type="radio" id="key05" name="key-select" value="0.5" checked>
+                <label for="key05">Key＝0.5</label>
+            </div>
+            <div class="input-group">
+                <input type="number" id="input05" class="tempo-input" value="100" min="50" max="200" step="any">
+                <span>BPM</span>
+            </div>
+            <input type="range" id="slider05" class="slider" min="50" max="200" value="100" step="1">
+        </div>
+    </div>
+
+    <div class="bottom-section">
+        <button class="sync-button" id="syncBtn">体感速度を揃える（÷√2）</button>
+        
+        <div class="image-container">
+            <img id="displayImg" src="1_2.png" alt="イメージ図">
+        </div>
+
+        <button class="play-button" id="playBtn" disabled>読込中...</button>
+    </div>
+</div>
+
+<script>
+    // --- UI ロジック ---
+    const radioKey1 = document.getElementById('key1');
+    const radioKey05 = document.getElementById('key05');
+    const section1 = document.getElementById('section-key1');
+    const section05 = document.getElementById('section-key05');
+    const input1 = document.getElementById('input1');
+    const input05 = document.getElementById('input05');
+    const slider1 = document.getElementById('slider1');
+    const slider05 = document.getElementById('slider05');
+    const syncBtn = document.getElementById('syncBtn');
+    const playBtn = document.getElementById('playBtn');
+    const displayImg = document.getElementById('displayImg');
+
+    const ROOT2 = Math.sqrt(2);
+    const roundToTwo = (num) => +(Math.round(num + "e+2") + "e-2");
+
+    // 画像プリロード
+    const preloadImg = (url) => { const img = new Image(); img.src = url; };
+    preloadImg("1.png");
+    preloadImg("1_2.png");
+
+    function updateUI() {
+        const isKey1 = radioKey1.checked;
+        section1.classList.toggle('disabled', !isKey1);
+        section05.classList.toggle('disabled', isKey1);
+        input1.disabled = !isKey1; slider1.disabled = !isKey1;
+        input05.disabled = isKey1; slider05.disabled = isKey1;
+        
+        displayImg.src = isKey1 ? "1.png" : "1_2.png";
+        syncBtn.innerText = isKey1 ? "体感速度を揃える（×√2）" : "体感速度を揃える（÷√2）";
+
+        if (Tone.Transport.state === "started") {
+            updateBPM();
+        }
+    }
+
+    [ {i: input1, s: slider1}, {i: input05, s: slider05} ].forEach(pair => {
+        pair.i.addEventListener('input', () => { pair.s.value = Math.round(pair.i.value); updateBPM(); });
+        pair.s.addEventListener('input', () => { pair.i.value = pair.s.value; updateBPM(); });
+    });
+
+    radioKey1.addEventListener('change', updateUI);
+    radioKey05.addEventListener('change', updateUI);
+    
+    syncBtn.addEventListener('click', () => {
+        if (radioKey1.checked) {
+            const result = roundToTwo(parseFloat(input1.value) * ROOT2);
+            input05.value = result; slider05.value = Math.round(result);
+        } else {
+            const result = roundToTwo(parseFloat(input05.value) / ROOT2);
+            input1.value = result; slider1.value = Math.round(result);
+        }
+        updateBPM();
+    });
+
+    updateUI();
+
+    // --- Tone.js ロジック ---
+    const players = new Tone.Players({
+        m1: "m1.wav",
+        m2: "m2.wav"
+    }, () => {
+        // 全音源のロード完了時
+        playBtn.disabled = false;
+        playBtn.innerText = "再生";
+    }).toDestination();
+
+    function updateBPM() {
+        const val = radioKey1.checked ? parseFloat(input1.value) : parseFloat(input05.value);
+        if (val > 0) Tone.Transport.bpm.value = val;
+    }
+
+    let repeatEventId = null;
+
+    playBtn.addEventListener('click', async () => {
+        if (!players.loaded) return;
+
+        if (Tone.context.state !== 'running') {
+            await Tone.start();
+        }
+
+        if (Tone.Transport.state !== "started") {
+            updateBPM();
+            repeatEventId = Tone.Transport.scheduleRepeat((time) => {
+                const secondsPerBeat = Tone.Time("4n").toSeconds();
+                
+                // 表拍
+                if (players.has("m1")) players.player("m1").start(time);
+
+                // 裏拍のオフセット計算
+                let offset = 0;
+                if (radioKey1.checked) {
+                    // Key=1 : 2:1のリズム
+                    offset = secondsPerBeat * (2 / 3);
+                } else {
+                    // Key=0.5 : 9:5のリズム
+                    offset = secondsPerBeat * (9 / 14);
+                }
+                
+                if (players.has("m2")) players.player("m2").start(time + offset);
+            }, "4n");
+
+            Tone.Transport.start();
+            playBtn.innerText = '停止';
+            playBtn.classList.add('active');
+        } else {
+            Tone.Transport.stop();
+            if (repeatEventId !== null) {
+                Tone.Transport.clear(repeatEventId);
+                repeatEventId = null;
+            }
+            playBtn.innerText = '再生';
+            playBtn.classList.remove('active');
+        }
+    });
+</script>
+
+</body>
+</html>
